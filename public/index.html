@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Club World Cup Picker</title>
+<meta name="description" content="Pick your club for the eFootball Club World Cup tournament. First come, first served.">
+<meta property="og:title" content="Club World Cup Picker">
+<meta property="og:description" content="32 clubs. One each. First come, first served.">
+<meta name="theme-color" content="#0d1426">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: floodlit night pitch. Sticky "your pick" bar on top, then crest tiles grouped by confederation, pick log at the end. Single dark look on purpose. */
+:root{
+  --night:#0d1426; --stand:#151f38; --tile:#1b2745; --line:#2a3a62;
+  --chalk:#eef1f8; --mist:#98a4c2; --gold:#e9b949; --gold-ink:#1c1405;
+  --taken:#0f1730; --mine:#2b2410; --bad:#ff7a6b; --ok:#7fd7a0;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--night);color:var(--chalk);font:16px/1.5 var(--body);margin:0;
+  background-image:radial-gradient(1200px 500px at 50% -200px,#22325c 0%,transparent 70%);background-repeat:no-repeat}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--night)}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.hero{padding-block:28px 18px}
+.eyebrow{font:600 13px/1 var(--display);letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+h1{font:800 clamp(38px,7vw,64px)/.95 var(--display);text-transform:uppercase;letter-spacing:.01em;margin:10px 0 12px;text-wrap:balance}
+.rules{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+.rules li{font:600 14px/1 var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--mist);border:1px solid var(--line);border-radius:999px;padding:7px 12px}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:rgba(13,20,38,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.bar .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding-block:12px}
+.namebox{display:flex;align-items:center;gap:10px;flex:1 1 260px;min-width:0}
+.namebox label{font:600 13px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--mist);white-space:nowrap}
+#player{flex:1;min-width:0;background:var(--stand);color:var(--chalk);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:500 16px var(--body)}
+#player:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:transparent}
+.status{display:flex;align-items:center;gap:10px;min-width:0}
+.status img{width:38px;height:38px;object-fit:contain;padding:4px;border-radius:50%;background:#eef1f8}
+.status b{font:700 18px/1.1 var(--display);text-transform:uppercase;letter-spacing:.03em}
+.status small{display:block;color:var(--mist);font-size:13px}
+.count{margin-left:auto;font:700 15px/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--mist);font-variant-numeric:tabular-nums;white-space:nowrap}
+.count strong{color:var(--gold);font-size:22px}
+
+.note{margin:16px 0 0;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--stand);color:var(--mist);font-size:15px}
+.note.warn{border-color:#6b4a1a;color:#f3d79a}
+.note.err{border-color:#6e2a24;color:#ffc2ba}
+
+section.conf{margin-top:28px}
+.conf h2{display:flex;align-items:baseline;gap:10px;font:700 22px/1 var(--display);text-transform:uppercase;letter-spacing:.06em;margin:0 0 12px}
+.conf h2 span{font:500 14px var(--body);letter-spacing:0;text-transform:none;color:var(--mist)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.club{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 10px 12px;border-radius:12px;
+  background:var(--tile);border:1px solid var(--line);color:inherit;font:inherit;text-align:center;cursor:pointer;transition:transform .12s,border-color .12s,background .12s}
+.club:hover{border-color:var(--gold);transform:translateY(-2px)}
+.club:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.club img{width:80px;height:80px;object-fit:contain;padding:10px;border-radius:50%;background:#eef1f8;box-shadow:0 3px 10px rgba(0,0,0,.4)}
+.club .nm{font:700 17px/1.1 var(--display);text-transform:uppercase;letter-spacing:.02em}
+.club .ct{font-size:12px;color:var(--mist);letter-spacing:.04em}
+.club .who{font:600 13px/1.2 var(--body);color:var(--mist);min-height:16px;max-width:100%;overflow-wrap:anywhere}
+.club.taken{background:var(--taken);cursor:default}
+.club.taken:hover{transform:none;border-color:var(--line)}
+.club.taken img{filter:grayscale(1) brightness(.45)}
+.club.taken .nm{color:var(--mist)}
+.club.taken .who{color:var(--chalk)}
+.club.mine{background:var(--mine);border-color:var(--gold);cursor:default}
+.club.mine:hover{transform:none}
+.club.mine .who{color:var(--gold)}
+.club.locked:not(.taken):not(.mine){opacity:.55}
+.champ{position:absolute;top:8px;right:8px;font:700 10px/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--gold-ink);background:var(--gold);border-radius:4px;padding:3px 5px}
+.mini{margin-top:2px;background:transparent;border:1px solid var(--line);color:var(--mist);border-radius:6px;padding:4px 9px;font:600 12px var(--body);cursor:pointer}
+.mini:hover{color:var(--chalk);border-color:var(--mist)}
+
+.log{margin:40px 0 0;padding-block:20px 48px;border-top:1px solid var(--line)}
+.log-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.log h2{font:700 22px/1 var(--display);text-transform:uppercase;letter-spacing:.06em;margin:0}
+.log ol{margin:14px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px 18px}
+.log li{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #1f2b4b;font-variant-numeric:tabular-nums;min-width:0}
+.log li .n{width:24px;color:var(--mist);font:600 14px var(--display)}
+.log li img{width:28px;height:28px;object-fit:contain;padding:3px;border-radius:50%;background:#eef1f8}
+.log li .p{font-weight:600;overflow-wrap:anywhere;min-width:0}
+.log li .c{color:var(--mist);margin-left:auto;text-align:right;font-size:14px}
+.empty{color:var(--mist);margin-top:12px}
+.btn{border:0;border-radius:8px;padding:10px 16px;font:700 15px/1 var(--display);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.btn.gold{background:var(--gold);color:var(--gold-ink)}
+.btn.ghost{background:transparent;color:var(--chalk);border:1px solid var(--line)}
+.btn:focus-visible{outline:2px solid var(--chalk);outline-offset:2px}
+.btn[disabled]{opacity:.5;cursor:default}
+
+.sheet{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-end;justify-content:center;background:rgba(5,8,18,.7);
+  padding:16px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+@media (min-width:640px){.sheet{align-items:center}}
+.card{width:100%;max-width:400px;background:var(--stand);border:1px solid var(--line);border-radius:16px;padding:24px;text-align:center}
+.card img{width:112px;height:112px;object-fit:contain;padding:12px;border-radius:50%;background:#eef1f8}
+.card h3{font:800 30px/1 var(--display);text-transform:uppercase;margin:12px 0 6px}
+.card p{color:var(--mist);margin:0 0 18px}
+.card .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.card .assign{margin:0 0 16px;text-align:left}
+.card .assign label{font:600 12px var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--mist)}
+.card .assign input{width:100%;margin-top:6px;background:var(--night);color:var(--chalk);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:500 15px var(--body)}
+.card .msg{min-height:20px;font-size:14px;margin:0 0 12px}
+.card .msg.bad{color:var(--bad)} .card .msg.ok{color:var(--ok)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;background:var(--chalk);color:var(--night);font-weight:600;padding:10px 16px;border-radius:999px;max-width:calc(100% - 32px);text-align:center}
+@media (prefers-reduced-motion:reduce){.club{transition:none}.club:hover{transform:none}}
+</style>
+<style>img{max-width:100%}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+<style>
+footer.foot{padding-block:0 40px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;color:var(--mist);font-size:14px}
+.linkbtn{background:none;border:0;color:var(--mist);text-decoration:underline;text-underline-offset:3px;font:500 14px var(--body);cursor:pointer;padding:4px 0}
+.linkbtn:hover{color:var(--chalk)}
+.adminpill{display:inline-flex;align-items:center;gap:8px;font:700 13px/1 var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--gold-ink);background:var(--gold);border-radius:999px;padding:6px 10px}
+.card .field{margin:0 0 14px;text-align:left}
+.card .field label{font:600 12px var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--mist)}
+.card .field input{width:100%;margin-top:6px;background:var(--night);color:var(--chalk);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:500 15px var(--body)}
+.club.manual .who::after{content:" · set by organiser";color:var(--mist);font-weight:400}
+</style>
+
+<header class="hero wrap">
+  <div class="eyebrow">eFootball · Tournament draft</div>
+  <h1>Club World Cup Picker</h1>
+  <ul class="rules">
+    <li>32 clubs from the 2025 edition</li>
+    <li>One club per player</li>
+    <li>First come, first served</li>
+    <li>8 min · Random form · Dream squad</li>
+  </ul>
+</header>
+
+<div class="bar">
+  <div class="wrap">
+    <div class="namebox">
+      <label for="player">Your name</label>
+      <input id="player" maxlength="28" autocomplete="nickname" placeholder="Name the group knows you by">
+    </div>
+    <div class="status" id="status"><div><b>Pick a club</b><small>Tap any crest that isn't taken</small></div></div>
+    <div class="count"><strong id="takenN">0</strong> / 32 taken</div>
+  </div>
+</div>
+
+<main class="wrap">
+  <div id="notice" class="note" hidden></div>
+  <div id="board"></div>
+
+  <section class="log">
+    <div class="log-head">
+      <h2>Pick order</h2>
+      <button class="btn ghost" id="copyBtn" type="button">Copy list for WhatsApp</button>
+    </div>
+    <ol id="logList"></ol>
+    <p class="empty" id="logEmpty">No picks yet. The first person to lock in a club shows up here.</p>
+  </section>
+</main>
+
+<footer class="foot wrap">
+  <span>Your pick is tied to this phone or browser. Use the same one if you want to release it later.</span>
+  <span id="adminArea"><button class="linkbtn" id="adminOpen" type="button">Organiser login</button></span>
+</footer>
+
+<!-- pick sheet -->
+<div class="sheet" id="sheet" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <img id="sheetImg" alt="">
+    <h3 id="sheetTitle"></h3>
+    <p id="sheetSub"></p>
+    <div class="field" id="assignBox" hidden>
+      <label for="assignName">Assign to a player (organiser)</label>
+      <input id="assignName" maxlength="28" placeholder="Player's name">
+    </div>
+    <div class="msg" id="sheetMsg"></div>
+    <div class="row">
+      <button class="btn ghost" id="cancelBtn" type="button">Cancel</button>
+      <button class="btn gold" id="confirmBtn" type="button">Lock it in</button>
+    </div>
+  </div>
+</div>
+
+<!-- organiser login sheet -->
+<div class="sheet" id="adminSheet" hidden>
+  <form class="card" id="adminForm" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+    <h3 id="adminTitle">Organiser login</h3>
+    <p>Organisers can free up any club and assign clubs to players.</p>
+    <div class="field">
+      <label for="adminPw">Password</label>
+      <input id="adminPw" type="password" autocomplete="current-password" required>
+    </div>
+    <div class="msg" id="adminMsg"></div>
+    <div class="row">
+      <button class="btn ghost" id="adminCancel" type="button">Cancel</button>
+      <button class="btn gold" type="submit">Log in</button>
+    </div>
+  </form>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const CRESTS = __CRESTS__;
+const CONFS = [
+  {key:"UEFA", label:"Europe", clubs:[
+    ["realmadrid","Real Madrid","Spain"],["mancity","Manchester City","England"],["bayern","Bayern Munich","Germany"],
+    ["psg","Paris Saint-Germain","France"],["chelsea","Chelsea","England"],["inter","Inter","Italy"],
+    ["juve","Juventus","Italy"],["atleti","Atlético Madrid","Spain"],["bvb","Borussia Dortmund","Germany"],
+    ["porto","Porto","Portugal"],["benfica","Benfica","Portugal"],["salzburg","RB Salzburg","Austria"]]},
+  {key:"CONMEBOL", label:"South America", clubs:[
+    ["palmeiras","Palmeiras","Brazil"],["flamengo","Flamengo","Brazil"],["fluminense","Fluminense","Brazil"],
+    ["botafogo","Botafogo","Brazil"],["river","River Plate","Argentina"],["boca","Boca Juniors","Argentina"]]},
+  {key:"CONCACAF", label:"North & Central America", clubs:[
+    ["monterrey","Monterrey","Mexico"],["pachuca","Pachuca","Mexico"],["seattle","Seattle Sounders","USA"],
+    ["lafc","Los Angeles FC","USA"],["miami","Inter Miami","USA"]]},
+  {key:"AFC", label:"Asia", clubs:[
+    ["hilal","Al Hilal","Saudi Arabia"],["urawa","Urawa Red Diamonds","Japan"],["ulsan","Ulsan HD","South Korea"],["alain","Al Ain","UAE"]]},
+  {key:"CAF", label:"Africa", clubs:[
+    ["ahly","Al Ahly","Egypt"],["wydad","Wydad AC","Morocco"],["esperance","Espérance de Tunis","Tunisia"],["sundowns","Mamelodi Sundowns","South Africa"]]},
+  {key:"OFC", label:"Oceania", clubs:[["auckland","Auckland City","New Zealand"]]}
+];
+const CLUB = {}; CONFS.forEach(c=>c.clubs.forEach(([id,name,country])=>CLUB[id]={id,name,country,conf:c.key}));
+
+const $ = s=>document.querySelector(s);
+function lsGet(k){try{return localStorage.getItem(k)||""}catch(e){return ""}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
+
+// Anonymous identity: a random token kept in this browser.
+let TOKEN = lsGet("cwc-token");
+if(!/^[A-Za-z0-9_-]{16,64}$/.test(TOKEN)){
+  const a=new Uint8Array(18); crypto.getRandomValues(a);
+  TOKEN=btoa(String.fromCharCode(...a)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+  lsSet("cwc-token",TOKEN);
+}
+
+const state = {picks:{}, version:null, ready:false, busy:false, pending:null, adminPw:lsGet("cwc-admin")};
+const isAdmin = ()=>!!state.adminPw;
+
+const nameInput = $("#player");
+nameInput.value = lsGet("cwc-player");
+let renameT;
+nameInput.addEventListener("input",()=>{
+  lsSet("cwc-player",nameInput.value.trim());
+  clearTimeout(renameT);
+  renameT=setTimeout(()=>{ if(myClub() && nameInput.value.trim()) api("/api/rename",{token:TOKEN,name:nameInput.value.trim()}).then(poll).catch(()=>{}) },900);
+});
+
+function notice(text,kind){const n=$("#notice"); if(!text){n.hidden=true;return} n.textContent=text; n.className="note"+(kind?" "+kind:""); n.hidden=false}
+let toastT; function toast(t){const el=$("#toast"); el.textContent=t; el.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>el.hidden=true,2800)}
+function myClub(){ for(const id in state.picks){ if(state.picks[id].mine) return id } return null }
+
+async function api(url,body){
+  const r=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+  let j={}; try{ j=await r.json() }catch(e){}
+  return {status:r.status, ...j};
+}
+function applyPicks(j){
+  if(!j || !j.picks) return;
+  const next={}; j.picks.forEach(p=>{ if(CLUB[p.club]) next[p.club]=p });
+  state.picks=next; state.version=j.version; state.ready=true; render();
+}
+
+function render(){
+  const mine = myClub();
+  const board = $("#board"); board.textContent="";
+  for(const conf of CONFS){
+    const sec=document.createElement("section"); sec.className="conf";
+    const h=document.createElement("h2"); h.textContent=conf.key; const sp=document.createElement("span"); sp.textContent=conf.label+" · "+conf.clubs.length; h.append(sp); sec.append(h);
+    const grid=document.createElement("div"); grid.className="grid";
+    for(const [id] of conf.clubs){
+      const c=CLUB[id], p=state.picks[id];
+      const el=document.createElement(p?"div":"button");
+      el.className="club"; if(!p) el.type="button";
+      const img=new Image(); img.src=CRESTS[id]; img.alt=c.name+" crest"; img.width=80; img.height=80;
+      const nm=document.createElement("div"); nm.className="nm"; nm.textContent=c.name;
+      const ct=document.createElement("div"); ct.className="ct"; ct.textContent=c.country;
+      const who=document.createElement("div"); who.className="who";
+      el.append(img,nm,ct,who);
+      if(id==="chelsea"){const s=document.createElement("span"); s.className="champ"; s.textContent="2025 champs"; s.title="Chelsea beat PSG 3-0 in the 2025 final"; el.append(s)}
+      if(p){
+        el.classList.add(p.mine?"mine":"taken"); if(p.manual && !p.mine) el.classList.add("manual");
+        who.textContent = p.mine ? "Your club" : "Taken by "+(p.name||"someone");
+        if(p.mine || isAdmin()){
+          const b=document.createElement("button"); b.type="button"; b.className="mini";
+          b.textContent = p.mine ? "Release" : "Free up";
+          b.addEventListener("click",()=>release(id,p.mine));
+          el.append(b);
+        }
+      } else {
+        who.textContent = "Available";
+        if(mine && !isAdmin()) el.classList.add("locked");
+        el.addEventListener("click",()=>openSheet(id));
+      }
+      grid.append(el);
+    }
+    sec.append(grid); board.append(sec);
+  }
+  const st=$("#status"); st.textContent="";
+  const box=document.createElement("div"); const b=document.createElement("b"); const sm=document.createElement("small");
+  if(mine){ const img=new Image(); img.src=CRESTS[mine]; img.alt=""; st.append(img); b.textContent=CLUB[mine].name; sm.textContent="Your club is locked in"; }
+  else { b.textContent="Pick a club"; sm.textContent="Tap any crest that isn't taken"; }
+  box.append(b,sm); st.append(box);
+  $("#takenN").textContent=Object.keys(state.picks).length;
+  const list=$("#logList"); list.textContent="";
+  const ordered=Object.values(state.picks).sort((a,b)=>a.at-b.at);
+  ordered.forEach((p,i)=>{
+    const li=document.createElement("li");
+    const nEl=document.createElement("span"); nEl.className="n"; nEl.textContent=i+1;
+    const img=new Image(); img.src=CRESTS[p.club]; img.alt="";
+    const pn=document.createElement("span"); pn.className="p"; pn.textContent=p.name||"Someone";
+    const cEl=document.createElement("span"); cEl.className="c"; cEl.textContent=CLUB[p.club].name;
+    li.append(nEl,img,pn,cEl); list.append(li);
+  });
+  $("#logEmpty").hidden = ordered.length>0;
+  renderAdminArea();
+}
+
+function renderAdminArea(){
+  const a=$("#adminArea"); a.textContent="";
+  if(isAdmin()){
+    const pill=document.createElement("span"); pill.className="adminpill"; pill.textContent="Organiser mode";
+    const out=document.createElement("button"); out.className="linkbtn"; out.type="button"; out.textContent="Log out";
+    out.addEventListener("click",()=>{ state.adminPw=""; lsDel("cwc-admin"); toast("Logged out of organiser mode"); render() });
+    a.append(pill," ",out);
+  } else {
+    const btn=document.createElement("button"); btn.id="adminOpen"; btn.className="linkbtn"; btn.type="button"; btn.textContent="Organiser login";
+    btn.addEventListener("click",openAdmin); a.append(btn);
+  }
+}
+
+// ---- pick sheet
+function openSheet(id){
+  if(!state.ready){ toast("Still loading picks, try again in a second"); return }
+  const mine=myClub();
+  if(mine && !isAdmin()){ toast("You already have "+CLUB[mine].name+". Release it first to switch."); return }
+  state.pending=id; const c=CLUB[id];
+  $("#sheetImg").src=CRESTS[id]; $("#sheetImg").alt=c.name+" crest"; $("#sheetTitle").textContent=c.name;
+  $("#sheetSub").textContent=c.country+" · "+c.conf;
+  $("#assignBox").hidden=!isAdmin(); $("#assignName").value="";
+  $("#confirmBtn").textContent = isAdmin() ? "Assign / lock in" : "Lock it in";
+  sheetMsg(isAdmin() ? "Leave the name blank to pick this club for yourself." : "");
+  $("#confirmBtn").disabled=false; $("#sheet").hidden=false; $("#confirmBtn").focus();
+}
+function closeSheet(){ $("#sheet").hidden=true; state.pending=null }
+$("#cancelBtn").addEventListener("click",closeSheet);
+$("#sheet").addEventListener("click",e=>{ if(e.target.id==="sheet") closeSheet() });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(!$("#sheet").hidden) closeSheet(); if(!$("#adminSheet").hidden) closeAdmin() } });
+$("#confirmBtn").addEventListener("click",()=>claim(state.pending));
+function sheetMsg(t,kind){const m=$("#sheetMsg"); m.textContent=t; m.className="msg"+(kind?" "+kind:"")}
+
+async function claim(id){
+  if(!id || state.busy) return;
+  const assignTo = isAdmin() ? $("#assignName").value.trim() : "";
+  const name = nameInput.value.trim();
+  if(!assignTo && !name){ sheetMsg("Type your name in the bar at the top first, so everyone knows whose club this is.","bad"); return }
+  state.busy=true; $("#confirmBtn").disabled=true; sheetMsg("Locking it in…");
+  try{
+    const j = assignTo
+      ? await api("/api/admin/assign",{password:state.adminPw, club:id, name:assignTo, token:TOKEN})
+      : await api("/api/claim",{club:id, name, token:TOKEN});
+    if(j.status===401 && assignTo){ adminRejected(); sheetMsg("Organiser password no longer works. Log in again.","bad"); return }
+    applyPicks(j);
+    if(j.result==="ok"){ closeSheet(); toast(assignTo ? CLUB[id].name+" assigned to "+assignTo : CLUB[id].name+" is yours"); return }
+    if(j.result==="club_taken"){ const p=state.picks[id]; sheetMsg("Too late, "+(p?p.name:"someone")+" just took "+CLUB[id].name+".","bad"); return }
+    if(j.result==="has_pick"){ const m=myClub(); sheetMsg("You already have "+(m?CLUB[m].name:"a club")+". Release it first.","bad"); return }
+    sheetMsg(j.error==="locked" ? "Too many wrong passwords. Wait 5 minutes." : "Couldn't save the pick. Try again.","bad");
+  }catch(e){ sheetMsg("Couldn't reach the server. Check your connection and try again.","bad") }
+  finally{ state.busy=false; $("#confirmBtn").disabled=false }
+}
+
+let releaseArm=null, armT;
+async function release(id,isMine){
+  if(state.busy) return;
+  const c=CLUB[id], p=state.picks[id];
+  if(releaseArm!==id){
+    releaseArm=id; clearTimeout(armT); armT=setTimeout(()=>releaseArm=null,4000);
+    toast(isMine ? "Tap Release again to give up "+c.name : "Tap Free up again to remove "+(p?p.name:"this player")+" from "+c.name);
+    return;
+  }
+  releaseArm=null; state.busy=true;
+  try{
+    const j = isMine ? await api("/api/release",{club:id, token:TOKEN}) : await api("/api/admin/release",{club:id, password:state.adminPw, token:TOKEN});
+    if(j.status===401){ adminRejected(); toast("Organiser password no longer works. Log in again."); return }
+    applyPicks(j);
+    toast(j.result==="ok"||j.result==="already_free" ? c.name+" is available again" : "Couldn't release "+c.name);
+  }catch(e){ toast("Couldn't reach the server. Try again.") }
+  finally{ state.busy=false }
+}
+
+// ---- organiser login
+function openAdmin(){ $("#adminPw").value=""; $("#adminMsg").textContent=""; $("#adminMsg").className="msg"; $("#adminSheet").hidden=false; $("#adminPw").focus() }
+function closeAdmin(){ $("#adminSheet").hidden=true }
+function adminRejected(){ state.adminPw=""; lsDel("cwc-admin"); render() }
+$("#adminCancel").addEventListener("click",closeAdmin);
+$("#adminSheet").addEventListener("click",e=>{ if(e.target.id==="adminSheet") closeAdmin() });
+$("#adminForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const pw=$("#adminPw").value; const m=$("#adminMsg");
+  try{
+    const j=await api("/api/admin/check",{password:pw});
+    if(j.result==="ok"){ state.adminPw=pw; lsSet("cwc-admin",pw); closeAdmin(); toast("Organiser mode on"); render(); return }
+    m.className="msg bad";
+    m.textContent = j.error==="locked" ? "Too many wrong tries. Wait 5 minutes." : j.error==="admin_not_configured" ? "No organiser password is set on the server yet." : "Wrong password.";
+  }catch(err){ m.className="msg bad"; m.textContent="Couldn't reach the server." }
+});
+
+// ---- copy list
+$("#copyBtn").addEventListener("click",()=>{
+  const ordered=Object.values(state.picks).sort((a,b)=>a.at-b.at);
+  const lines=["CLUB WORLD CUP - club picks"].concat(ordered.map((p,i)=>(i+1)+". "+p.name+" - "+CLUB[p.club].name));
+  const left=Object.keys(CLUB).filter(id=>!state.picks[id]).map(id=>CLUB[id].name);
+  lines.push("","Still available ("+left.length+"): "+left.join(", "),"","Pick here: "+location.origin);
+  const text=lines.join("\n");
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(()=>toast("List copied"),()=>fallbackCopy(text)); else fallbackCopy(text);
+});
+function fallbackCopy(text){ const ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0"; document.body.append(ta); ta.select(); try{document.execCommand("copy"); toast("List copied")}catch(e){toast("Couldn't copy, select the list manually")} ta.remove() }
+
+// ---- live updates: poll every 3 s (pauses while the tab is hidden)
+let failCount=0, wakeT=setTimeout(()=>{ if(!state.ready) notice("Waking the server up. This can take up to a minute after a quiet spell.","warn") },2500);
+async function poll(){
+  try{
+    const r=await fetch("/api/picks?t="+encodeURIComponent(TOKEN)+(state.version?"&v="+state.version:""),{cache:"no-store"});
+    const j=await r.json();
+    if(!j.same) applyPicks(j);
+    if(!state.ready){ state.ready=true; render() }
+    clearTimeout(wakeT); failCount=0; notice("");
+  }catch(e){ if(++failCount>=3) notice("Lost connection to the picker. Retrying…","err") }
+}
+render(); poll();
+setInterval(()=>{ if(!document.hidden) poll() },3000);
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) poll() });
+</script>
+</body>
+</html>
